@@ -20,9 +20,9 @@ v1.1 から、表示位置はマウスカーソルではなく **キャレット
 |:---:|:---|:---|
 | **あ** | 赤橙 | IME オン：ひらがな |
 | **カ** | 赤紫 | IME オン：全角カタカナ |
-| **ｱ** | 紫 | IME オン：半角カタカナ |
+| **ｱ** | 黄色（文字は濃い茶色） | IME オン：半角カタカナ |
 | **Ａ** | 青緑 | IME オン：全角英数 |
-| **A** | 灰青 | IME オフ（半角英数） |
+| **A** | 紫 | IME オフ（半角英数） |
 | **?** | 濃い灰色 | 状態を取得できない（管理者として実行中のアプリなど。下の「制限事項」参照） |
 
 表示は少し半透明で、クリックはすべて下のウィンドウに素通りします（邪魔になりません）。
@@ -100,6 +100,9 @@ v1.1 から、表示位置はマウスカーソルではなく **キャレット
   2. 見つからなければ MSAA: `AccessibleObjectFromWindow(フォーカスウィンドウ, OBJID_CARET)` →
      `IAccessible::accLocation`（Chrome / Edge / Electron、Office、新しいメモ帳、多くの WPF / UWP アプリ）。
      幅・高さが 0 や (0,0) の結果は「キャレットなし」とみなします。
+  - UWP / WinUI アプリ（設定、電卓、ストアアプリ等）は前面ウィンドウが ApplicationFrameHost の
+    `ApplicationFrameWindow` なので、子の `Windows.UI.Core.CoreWindow`（アプリ本体のスレッド）を対象にして
+    キャレット位置と IME 状態を取得します。
   - UI Automation（TextPattern）による取得は、複雑さと不具合のリスクに見合わないため実装していません。
 - キャレットが前面ウィンドウの外にある、どのモニターにも無い、などの不自然な位置は無視します。
 - 100 ms ごとのタイマーで、前面ウィンドウ → `GetGUIThreadInfo` でフォーカスのあるウィンドウ →
@@ -110,6 +113,15 @@ v1.1 から、表示位置はマウスカーソルではなく **キャレット
 - フォントは Yu Gothic UI（無ければ Meiryo UI → メイリオ → MS UI Gothic）。
 - Per-Monitor DPI Aware V2（マニフェスト + `SetProcessDpiAwarenessContext`）。
 - エクスプローラーが再起動しても通知領域アイコンは自動で復活します（`TaskbarCreated`）。
+
+### 対応状況のまとめ
+
+- 表示される: 従来の Win32 アプリ（旧メモ帳・ワードパッド等）、Chrome / Edge / Electron（VS Code、Slack 等）、Firefox、
+  Office、新しいメモ帳、多くの WPF / WinForms アプリ、OBJID_CARET を公開している UWP / WinUI アプリ。
+- 表示されない・不正確: Windows Terminal・一部ターミナル、ゲーム、独自描画エディター（キャレットを OS に公開しない）、
+  RDP / VM 内、**管理者として実行中のアプリ**（UIPI によりメッセージ・MSAA が遮断。本アプリを管理者で起動すれば回避可。
+  `uiAccess=true` による回避はコード署名と Program Files への配置が必要なため採用していません）。
+  TSF のみ対応のアプリでは IME 状態がずれる場合があります。
 
 ## 自分でビルドする場合
 

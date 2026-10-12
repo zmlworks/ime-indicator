@@ -199,7 +199,7 @@ ST_HKATA    equ 3       ; 「ｱ」  half-width katakana
 ST_FALNUM   equ 4       ; 「Ａ」 full-width alphanumeric (IME on)
 ST_UNKNOWN  equ 5       ; 「?」  could not query (e.g. elevated app)
 ST_COUNT    equ 6
-STATE_ENTRY equ 12      ; dw char, dw 0, dd bg COLORREF, dd border COLORREF
+STATE_ENTRY equ 16      ; dw char, dw 0, dd bg, dd border, dd text COLORREF
 
 ; -----------------------------------------------------------------------------
 ;  Structure sizes / offsets (x64)
@@ -254,7 +254,7 @@ IMPORT MessageBoxW, SetProcessDPIAware, GetDC, ReleaseDC, LoadIconW, \
        GetCursorPos, MonitorFromPoint, MonitorFromWindow, \
        ClientToScreen, IsHungAppWindow, \
        GetMonitorInfoW, SetWindowPos, ShowWindow, SetWindowRgn, \
-       InvalidateRect, GetForegroundWindow, GetWindowThreadProcessId, \
+       InvalidateRect, GetForegroundWindow, GetWindowThreadProcessId, FindWindowExW, \
        GetGUIThreadInfo, SendMessageTimeoutW, GetShellWindow, \
        GetDesktopWindow, GetClassNameW, GetWindowRect, GetWindowLongPtrW, \
        CreatePopupMenu, AppendMenuW, TrackPopupMenu, DestroyMenu, \
@@ -417,22 +417,24 @@ shell_class_table:
     WSTR32 "Shell_TrayWnd"
     WSTR32 "Shell_SecondaryTrayWnd"
     times 32 dw 0
+cls_appframe:   WSTR32 "ApplicationFrameWindow"
+cls_corewindow: WSTR32 "Windows.UI.Core.CoreWindow"
 
 ; State table: character, background colour, border colour (COLORREF 0x00BBGGRR)
 align 4
 state_table:
-    dw 0041h, 0             ; ST_OFF    「A」 slate blue-gray  #5A6B7D
-    dd 007D6B5Ah, 0052463Ah
+    dw 0041h, 0             ; ST_OFF    「A」 violet          #7A3DC8
+    dd 00C83D7Ah, 0086234Eh, 00FFFFFFh
     dw 3042h, 0             ; ST_HIRA   「あ」 orange-red      #E2461F
-    dd 001F46E2h, 00102EA0h
+    dd 001F46E2h, 00102EA0h, 00FFFFFFh
     dw 30ABh, 0             ; ST_KATA   「カ」 magenta         #B0308A
-    dd 008A30B0h, 005E1A78h
-    dw 0FF71h, 0            ; ST_HKATA  「ｱ」  violet          #7A3DC8
-    dd 00C83D7Ah, 0086234Eh
+    dd 008A30B0h, 005E1A78h, 00FFFFFFh
+    dw 0FF71h, 0            ; ST_HKATA  「ｱ」  amber yellow    #F2C230 (dark text #2B2100)
+    dd 0030C2F2h, 00007EA6h, 0000212Bh
     dw 0FF21h, 0            ; ST_FALNUM 「Ａ」 teal            #12857A
-    dd 007A8512h, 00525A0Bh
+    dd 007A8512h, 00525A0Bh, 00FFFFFFh
     dw 003Fh, 0             ; ST_UNKNOWN「?」  dark gray       #444444
-    dd 00444444h, 00222222h
+    dd 00444444h, 00222222h, 00FFFFFFh
 %if ($ - state_table) != ST_COUNT * STATE_ENTRY
   %error "state_table size mismatch"
 %endif
@@ -988,6 +990,9 @@ FUNC_BEGIN update_caret, 108h
     call    is_shell_window             ; desktop / taskbar
     test    eax, eax
     jnz     .hide
+    mov     rcx, rbx
+    call    resolve_uwp                 ; ApplicationFrameWindow -> CoreWindow
+    mov     rbx, rax
 
     ; ---- Win32 caret query in the foreground window's DPI context ---------
     xor     r15d, r15d
@@ -1276,6 +1281,37 @@ FUNC_END
 ;  is_shell_window(RCX = hwnd) -> EAX = 1 if desktop / taskbar / shell window
 ;  Locals: [rsp+30h] WCHAR class[64] (128 bytes, to 0B0h)
 ; -----------------------------------------------------------------------------
+; -----------------------------------------------------------------------------
+;  resolve_uwp(RCX=hwnd) -> RAX: for a UWP/WinUI frame ("ApplicationFrameWindow",
+;  owned by ApplicationFrameHost.exe) return its "Windows.UI.Core.CoreWindow"
+;  child, which belongs to the app's own UI thread (focus, caret, IME context
+;  live there).  Otherwise return RCX unchanged.
+; -----------------------------------------------------------------------------
+FUNC_BEGIN resolve_uwp, 0B8h
+    mov     rbx, rcx
+    lea     rdx, [rsp+30h]
+    mov     r8d, 64
+    call    GetClassNameW
+    test    eax, eax
+    jz      .orig
+    lea     rcx, [rsp+30h]
+    lea     rdx, [cls_appframe]
+    call    lstrcmpiW
+    test    eax, eax
+    jnz     .orig
+    mov     rcx, rbx
+    xor     edx, edx
+    lea     r8, [cls_corewindow]
+    xor     r9d, r9d
+    call    FindWindowExW
+    test    rax, rax
+    jnz     .done
+.orig:
+    mov     rax, rbx
+.done:
+    FUNC_RET
+FUNC_END
+
 FUNC_BEGIN is_shell_window, 0B8h
     mov     rbx, rcx
     call    GetShellWindow
@@ -1455,6 +1491,9 @@ FUNC_BEGIN update_ime, 98h
 
     mov     rcx, rbx
     call    detect_fullscreen
+    mov     rcx, rbx
+    call    resolve_uwp                 ; UWP: query the CoreWindow's thread
+    mov     rbx, rax
 
     ; ---- focus window of the foreground thread -----------------------------
     mov     r12, rbx                    ; default target: foreground window
@@ -1662,7 +1701,7 @@ FUNC_BEGIN paint, 0A8h
     mov     edx, TRANSPARENT_BK
     call    SetBkMode
     mov     rcx, r12
-    mov     edx, 00FFFFFFh              ; white text
+    mov     edx, [r13+12]               ; per-state text colour
     call    SetTextColor
     mov     rcx, r12
     mov     rdx, [g_hFont]
