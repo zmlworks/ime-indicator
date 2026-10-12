@@ -1,0 +1,9 @@
+*.exe
+*.o
+*.obj
+*.res
+*.res.o
+build/
+*.zip
+.DS_Store
+.env

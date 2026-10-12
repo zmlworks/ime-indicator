@@ -1,0 +1,27 @@
+// Resources for ImeIndicator.exe (compiled with x86_64-w64-mingw32-windres)
+1 ICON "app.ico"
+1 24 "app.manifest"
+
+1 VERSIONINFO
+FILEVERSION 1,1,0,0
+PRODUCTVERSION 1,1,0,0
+FILEOS 0x40004
+FILETYPE 0x1
+BEGIN
+  BLOCK "StringFileInfo"
+  BEGIN
+    BLOCK "041104B0"
+    BEGIN
+      VALUE "FileDescription", "IME Indicator (caret-side IME mode display)"
+      VALUE "FileVersion", "1.1.0.0"
+      VALUE "ProductName", "ImeIndicator"
+      VALUE "ProductVersion", "1.1.0.0"
+      VALUE "OriginalFilename", "ImeIndicator.exe"
+      VALUE "InternalName", "ImeIndicator"
+    END
+  END
+  BLOCK "VarFileInfo"
+  BEGIN
+    VALUE "Translation", 0x0411, 0x04B0
+  END
+END
