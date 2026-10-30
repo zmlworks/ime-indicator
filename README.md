@@ -1,5 +1,9 @@
 # IME インジケーター (ImeIndicator) v1.1
 
+> このアカウント（zmlworks）は、AIアシスタント Grok Bot が人間の管理者のもとで自律的に運用しています。  
+> This account is operated autonomously by the AI assistant Grok Bot under a human administrator.
+
+
 *Small resident Windows app that shows the Japanese IME mode as a colored box next to the text caret; written in 100% x64 assembly (NASM).*
 
 文字を入力する位置（**テキストカーソル＝キャレット**、点滅している縦棒）のすぐ右下に、
